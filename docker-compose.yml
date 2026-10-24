@@ -1,0 +1,9 @@
+services:
+  web:
+    image: nginx:alpine
+    container_name: golden-spiral
+    ports:
+      - "80:80"
+    volumes:
+      - ./site:/usr/share/nginx/html:ro
+    restart: unless-stopped

@@ -10,10 +10,13 @@
 
   const MARGIN = 0.96;                       // small gap to the window edges
 
-  // Color wheel: amber at the outer tail (bottom → right), one full wheel
-  // over the whole spiral, folding into the inner curl
-  const HUE_START = 45;
-  const HUE_SWEEP = 360;                     // try 360 * TURNS for a full wheel per turn
+  // Background color wheel: starts at the right side of the spiral (3 o'clock)
+  const HUE_START = 45;                      // hue at 3 o'clock
+  const HUE_SWEEP = 360;                     // wheel turns as it wraps around (720 = two)
+  const BG_SAT = 70;                         // %
+  const BG_LIGHT = 30;                       // % — keep dark so the white spiral stands out
+
+  const SPIRAL_COLOR = "#ffffff";            // or "#000000" with BG_LIGHT ≈ 65
 
   const canvas = document.getElementById("spiral");
   const ctx = canvas.getContext("2d");
@@ -27,42 +30,49 @@
     canvas.style.width = W + "px";
     canvas.style.height = H + "px";
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, W, H);
 
     const cx = W / 2;
     const cy = H / 2;
-    const r = MARGIN * Math.min(W, H) / 2;
 
+    // Background: color wheel blending around the center, starting from the right
+    if (ctx.createConicGradient) {
+      const bg = ctx.createConicGradient(0, cx, cy);   // 0 rad = 3 o'clock, clockwise
+      const STEPS = 12;
+      for (let i = 0; i <= STEPS; i++) {
+        const t = i / STEPS;
+        bg.addColorStop(t, `hsl(${(HUE_START + HUE_SWEEP * t) % 360}, ${BG_SAT}%, ${BG_LIGHT}%)`);
+      }
+      ctx.fillStyle = bg;
+    } else {
+      ctx.fillStyle = `hsl(${HUE_START}, ${BG_SAT}%, ${BG_LIGHT}%)`;  // fallback: solid
+    }
+    ctx.fillRect(0, 0, W, H);
+
+    // Spiral (single color)
+    const r = MARGIN * Math.min(W, H) / 2;
     const TH0 = Math.PI / 2;                 // start at the bottom, wind inward towards the right
     const DTH = 2 * Math.PI * TURNS;
 
-    // t ∈ [0,1]: 0 = outer tail, 1 = vanishing point
-    const point = (t) => {
+    ctx.beginPath();
+    const N = 2000;
+    for (let i = 0; i <= N; i++) {
+      const t = i / N;
       const theta = TH0 - DTH * t;
       const rr = r * Math.exp(-B * DTH * t);
-      return { x: cx + rr * Math.cos(theta), y: cy + rr * Math.sin(theta) };
-    };
-    const hue = (t) => (HUE_START + HUE_SWEEP * t) % 360;
-
-    ctx.lineCap = "round";                   // round caps hide joins between colored segments
+      const x = cx + rr * Math.cos(theta);
+      const y = cy + rr * Math.sin(theta);
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.lineCap = "round";
     ctx.lineJoin = "round";
     ctx.lineWidth = 2.5;
+    ctx.strokeStyle = SPIRAL_COLOR;
+    ctx.stroke();
 
-    const N = TURNS * 480;                   // ~1440 small segments, each its own hue
-    for (let i = 0; i < N; i++) {
-      const a = point(i / N);
-      const b = point((i + 1) / N);
-      ctx.strokeStyle = `hsl(${hue((i + 0.5) / N)}, 85%, 60%)`;
-      ctx.beginPath();
-      ctx.moveTo(a.x, a.y);
-      ctx.lineTo(b.x, b.y);
-      ctx.stroke();
-    }
-
-    // Vanishing point, in the innermost hue
+    // Vanishing point
     ctx.beginPath();
     ctx.arc(cx, cy, 3, 0, 2 * Math.PI);
-    ctx.fillStyle = `hsl(${hue(1)}, 85%, 60%)`;
+    ctx.fillStyle = SPIRAL_COLOR;
     ctx.fill();
   }
 
